@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Assignment Submission Portal</title><style>
+*{box-sizing:border-box}body{margin:0;background:#f1f5f9;color:#172033;font:16px system-ui,sans-serif}main{max-width:1050px;margin:auto;padding:36px 20px}header{background:#142e48;color:white;border-radius:16px;padding:30px;margin-bottom:24px}h1{margin:8px 0;font-size:30px}h2{font-size:21px;margin-top:0}.tag{font-size:12px;letter-spacing:2px;color:#72dfd0}header p{color:#d5e1ee}.grid{display:grid;grid-template-columns:1fr 1.2fr;gap:24px}.card{background:white;padding:24px;border:1px solid #dce4ee;border-radius:14px}label{display:block;font-size:14px;font-weight:650;margin:16px 0 6px}input{width:100%;padding:12px;border:1px solid #aebdcd;border-radius:7px;font:inherit}button{background:#116e66;color:white;border:0;border-radius:7px;padding:13px 20px;font:inherit;cursor:pointer;margin-top:20px;width:100%}.item{padding:16px 0;border-bottom:1px solid #e2e8f0}.item strong{display:block}.meta{font-size:14px;color:#526479;margin:6px 0}a{color:#116e66;overflow-wrap:anywhere}#message{min-height:24px;font-size:14px;margin:12px 0 0}.note{font-size:14px;color:#526479}@media(max-width:750px){.grid{grid-template-columns:1fr}main{padding:20px 12px}}
+</style></head><body><main><header><div class="tag">CSC418 / DEVOPS LAB</div><h1>Assignment Submission Portal</h1><p>Submit your project link and view saved assignments.</p></header>
+<div class="grid"><section class="card"><h2>New submission</h2><p class="note" id="modeNote">All four fields are required. Use an HTTP or HTTPS submission link.</p>
+<form id="form" novalidate><label for="name">Student name</label><input id="name" name="name" required placeholder="Enter your name">
+<label for="registration_number">Registration number</label><input id="registration_number" name="registration_number" required placeholder="FA23-BSE-038">
+<label for="assignment_title">Assignment title</label><input id="assignment_title" name="assignment_title" required placeholder="DevOps lab assignment">
+<label for="submission_url">Submission URL</label><input id="submission_url" name="submission_url" type="url" required placeholder="https://github.com/username/project">
+<button type="submit">Save submission</button><p id="message" role="status"></p></form></section>
+<section class="card"><h2>Saved submissions <span id="count"></span></h2><div id="list">Loading submissions...</div></section></div></main>
+<script>
+const DEMO = true;
+const form = document.getElementById('form');
+const message = document.getElementById('message');
+function demoRows(){return JSON.parse(localStorage.getItem('portal-demo') || '[]');}
+async function load(){
+ try {
+  let rows;
+  if(DEMO){rows=demoRows();}else{const response=await fetch('/api/submissions');if(!response.ok)throw Error('Cannot load submissions.');rows=await response.json();}
+  const list=document.getElementById('list');list.replaceChildren();document.getElementById('count').textContent='('+rows.length+')';
+  if(!rows.length){list.textContent='No submissions yet.';return;}
+  for(const row of rows){
+   const item=document.createElement('div');item.className='item';
+   const title=document.createElement('strong');title.textContent=row.assignment_title;
+   const meta=document.createElement('div');meta.className='meta';meta.textContent=row.name+' | '+row.registration_number;
+   item.append(title,meta);
+   try{const url=new URL(row.submission_url);if(!['http:','https:'].includes(url.protocol))throw Error();const link=document.createElement('a');link.href=url.href;link.textContent=row.submission_url;link.target='_blank';link.rel='noopener noreferrer';item.append(link);}catch{const text=document.createElement('span');text.textContent=row.submission_url;item.append(text);}
+   list.append(item);
+  }
+ }catch(error){document.getElementById('list').textContent=error.message;}
+}
+form.addEventListener('submit',async event=>{
+ event.preventDefault();message.textContent='';const data=Object.fromEntries(new FormData(form));
+ try{
+  if(DEMO){
+   for(const key of ['name','registration_number','assignment_title','submission_url']){data[key]=data[key].trim();if(!data[key])throw Error(key.replaceAll('_',' ')+' is required.');}
+   let url;try{url=new URL(data.submission_url);}catch{throw Error('Enter a valid HTTP or HTTPS URL.');}
+   if(!['http:','https:'].includes(url.protocol)||!url.hostname||url.username||url.password||/\s/.test(data.submission_url))throw Error('Enter a valid HTTP or HTTPS URL.');
+   const rows=demoRows();rows.unshift(data);localStorage.setItem('portal-demo',JSON.stringify(rows));
+  }else{
+   const response=await fetch('/api/submissions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+   const result=await response.json();if(!response.ok)throw Error(result.error || 'Submission failed.');
+  }
+  message.style.color='#116e66';message.textContent='Submission saved.';form.reset();await load();
+ }catch(error){message.style.color='#b42318';message.textContent=error.message;}
+});
+if(DEMO)document.getElementById('modeNote').textContent='Static demo: submissions are stored only in this browser. The full local portal uses SQLite.';
+load();
+</script></body></html>

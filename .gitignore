@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+*.db
+ci-report.json
+test-report.json
+test-report.json.tmp
+report-history/
+.env

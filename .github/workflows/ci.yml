@@ -1,0 +1,51 @@
+name: Portal CI and local report
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: [self-hosted, Windows, X64]
+    defaults:
+      run:
+        shell: powershell
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run actual tests and deliver report to localhost
+        run: python run_tests.py --send
+      - name: Email report (optional bonus)
+        if: ${{ always() && vars.ENABLE_EMAIL == 'true' }}
+        env:
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          REPORT_TO: ${{ secrets.REPORT_TO }}
+        run: python send_email.py
+
+  deploy:
+    if: ${{ github.ref == 'refs/heads/main' && vars.ENABLE_PAGES == 'true' }}
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+      - name: Deploy static demo only after passing tests
+        id: deployment
+        uses: actions/deploy-pages@v4
