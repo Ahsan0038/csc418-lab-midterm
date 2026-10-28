@@ -6,7 +6,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlsplit
 
-REQUIRED_FIELDS = ("name", "registration_number", "assignment_title", "submission_url")
+REQUIRED_FIELDS = ("name", "assignment_title", "submission_url")
 
 def validate_submission(data):
     if not isinstance(data, dict):
